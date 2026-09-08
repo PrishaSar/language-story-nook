@@ -92,8 +92,8 @@ export async function generateAndSavePlotBible(input: {
   language: UserLanguage;
   interests: string[];
 }): Promise<PlotBible> {
-  const provider = process.env.AI_PROVIDER ?? "openai";
-  if (provider === "openai" && !process.env.OPENAI_API_KEY) {
+  // Only required when using the OpenAI block in src/lib/ai/provider.ts
+  if (process.env.AI_PROVIDER === "openai" && !process.env.OPENAI_API_KEY) {
     throw new Error(
       "OpenAI API key is not configured. Add OPENAI_API_KEY to .env.local (see .env.example).",
     );

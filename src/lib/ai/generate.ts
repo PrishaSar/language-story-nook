@@ -24,8 +24,9 @@ export async function generatePromptResponse(
   promptId?: PromptId,
 ): Promise<GeneratePromptResult> {
   const model = getLanguageModel();
-  const provider = process.env.AI_PROVIDER ?? "openai";
-  const modelId = process.env.AI_MODEL ?? (provider === "ollama" ? "llama3.2" : "gpt-4o-mini");
+  // Labels only — actual provider is chosen in provider.ts (comment swap).
+  const provider = process.env.AI_PROVIDER ?? "ollama";
+  const modelId = process.env.AI_MODEL ?? "llama3.2";
 
   const { text } = await generateText({
     model,

@@ -2,6 +2,7 @@ import { generateFromPrompt, parseAIJson } from "@/lib/ai";
 import {
   getLivingContext,
   getPlotBible,
+  getChapter,
   saveChapter,
   updateLivingContext,
   updateStoryChapter,
@@ -76,6 +77,15 @@ export async function generateAndSaveChapter(input: {
 
   if (input.chapterNumber < 1 || input.chapterNumber > bible.chapterCount) {
     throw new Error(`Chapter ${input.chapterNumber} is outside this story's arc.`);
+  }
+
+  // Never regenerate — return the saved chapter if it already exists.
+  const existing = await getChapter(input.story.id, input.chapterNumber);
+  if (existing) {
+    if (input.story.currentChapter !== input.chapterNumber) {
+      await updateStoryChapter(input.story.id, input.chapterNumber);
+    }
+    return existing;
   }
 
   const chapterBeats = getBeatsForChapter(bible, input.chapterNumber);

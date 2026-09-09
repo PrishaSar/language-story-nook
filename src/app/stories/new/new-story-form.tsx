@@ -7,7 +7,15 @@ import type { UserLanguage } from "@/lib/types";
 
 const initial = { error: null as string | null };
 
-export function NewStoryForm({ languages }: { languages: UserLanguage[] }) {
+export function NewStoryForm({
+  languages,
+  preferredWorld,
+  preferredGenres,
+}: {
+  languages: UserLanguage[];
+  preferredWorld: string | null;
+  preferredGenres: string[];
+}) {
   const [state, formAction, pending] = useActionState(
     async (_prev: typeof initial, formData: FormData) => {
       const result = await createStoryAction(formData);
@@ -74,9 +82,26 @@ export function NewStoryForm({ languages }: { languages: UserLanguage[] }) {
           name="worldDescription"
           required
           rows={5}
-          placeholder="Describe the setting — e.g. a medieval village where you run a bakery, or a space station orbiting Mars..."
+          defaultValue={
+            preferredWorld
+              ? `A language-learning story inspired by ${preferredWorld}`
+              : undefined
+          }
+          placeholder={
+            preferredWorld
+              ? `e.g. A quiet corner of ${preferredWorld}, or invent your own setting…`
+              : "Describe the setting — e.g. a medieval village where you run a bakery, or a space station orbiting Mars..."
+          }
           className="input-nook"
         />
+        {(preferredGenres.length > 0 || preferredWorld) && (
+          <span className="text-xs font-normal text-ink-muted">
+            From onboarding
+            {preferredGenres.length > 0 ? `: ${preferredGenres.join(", ")}` : ""}
+            {preferredWorld ? ` · world vibe: ${preferredWorld}` : ""}. You can edit this
+            description per story.
+          </span>
+        )}
       </label>
 
       {state.error && <p className="text-sm text-burgundy">{state.error}</p>}

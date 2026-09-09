@@ -12,6 +12,10 @@ export type User = {
   passwordHash: string;
   name: string | null;
   interests: string[];
+  /** Story genres the learner wants (mystery, fantasy, etc.). */
+  preferredGenres: string[];
+  /** Optional existing fictional world they love (e.g. "Middle-earth", "Star Wars"). */
+  preferredWorld: string | null;
   languages: UserLanguage[];
   onboarded: boolean;
   createdAt: string;
@@ -28,6 +32,8 @@ function normalizeUser(raw: User): User {
     ...raw,
     languages: raw.languages ?? [],
     interests: raw.interests ?? [],
+    preferredGenres: raw.preferredGenres ?? [],
+    preferredWorld: raw.preferredWorld ?? null,
   };
 }
 
@@ -59,6 +65,8 @@ export async function createUser(email: string, passwordHash: string): Promise<U
     passwordHash,
     name: null,
     interests: [],
+    preferredGenres: [],
+    preferredWorld: null,
     languages: [],
     onboarded: false,
     createdAt: new Date().toISOString(),
@@ -70,7 +78,17 @@ export async function createUser(email: string, passwordHash: string): Promise<U
 
 export async function updateUser(
   id: string,
-  patch: Partial<Pick<User, "name" | "interests" | "onboarded" | "languages">>,
+  patch: Partial<
+    Pick<
+      User,
+      | "name"
+      | "interests"
+      | "preferredGenres"
+      | "preferredWorld"
+      | "onboarded"
+      | "languages"
+    >
+  >,
 ): Promise<User | null> {
   const users = await readUsers();
   const idx = users.findIndex((u) => u.id === id);

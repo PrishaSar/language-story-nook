@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 
 const INTEREST_OPTIONS = [
   "Technology",
@@ -18,38 +18,63 @@ const INTEREST_OPTIONS = [
   "Science",
 ];
 
+const GENRE_OPTIONS = [
+  "Fantasy",
+  "Sci-fi",
+  "Mystery",
+  "Romance",
+  "Adventure",
+  "Thriller",
+  "Horror",
+  "Comedy",
+  "Historical",
+  "Slice of life",
+  "Drama",
+  "Detective",
+];
+
 export function OnboardingForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
-  const [customInput, setCustomInput] = useState("");
+  const [preferredGenres, setPreferredGenres] = useState<string[]>([]);
+  const [preferredWorld, setPreferredWorld] = useState("");
+  const [customInterestInput, setCustomInterestInput] = useState("");
+  const [customGenreInput, setCustomGenreInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function toggleInterest(interest: string) {
-    setInterests((prev) =>
-      prev.includes(interest)
-        ? prev.filter((i) => i !== interest)
-        : [...prev, interest],
+  function toggleInList(value: string, setter: Dispatch<SetStateAction<string[]>>) {
+    setter((prev) =>
+      prev.includes(value) ? prev.filter((i) => i !== value) : [...prev, value],
     );
   }
 
-  function addCustomInterest() {
-    const value = customInput.trim();
+  function addCustom(
+    raw: string,
+    current: string[],
+    setter: Dispatch<SetStateAction<string[]>>,
+    clear: () => void,
+  ) {
+    const value = raw.trim();
     if (!value) return;
-    const exists = interests.some((i) => i.toLowerCase() === value.toLowerCase());
-    if (!exists) setInterests((prev) => [...prev, value]);
-    setCustomInput("");
+    const exists = current.some((i) => i.toLowerCase() === value.toLowerCase());
+    if (!exists) setter((prev) => [...prev, value]);
+    clear();
   }
 
-  function handleCustomKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleChipKeyDown(
+    e: KeyboardEvent<HTMLInputElement>,
+    onEnter: () => void,
+  ) {
     if (e.key === "Enter") {
       e.preventDefault();
-      addCustomInterest();
+      onEnter();
     }
   }
 
   const customInterests = interests.filter((i) => !INTEREST_OPTIONS.includes(i));
+  const customGenres = preferredGenres.filter((g) => !GENRE_OPTIONS.includes(g));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,7 +84,12 @@ export function OnboardingForm() {
       const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, interests }),
+        body: JSON.stringify({
+          name,
+          interests,
+          preferredGenres,
+          preferredWorld: preferredWorld.trim() || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save your profile.");
@@ -94,7 +124,7 @@ export function OnboardingForm() {
               <button
                 key={interest}
                 type="button"
-                onClick={() => toggleInterest(interest)}
+                onClick={() => toggleInList(interest, setInterests)}
                 aria-pressed={active}
                 className={`chip-select ${active ? "chip-select-active" : ""}`}
               >
@@ -106,7 +136,7 @@ export function OnboardingForm() {
             <button
               key={interest}
               type="button"
-              onClick={() => toggleInterest(interest)}
+              onClick={() => toggleInList(interest, setInterests)}
               aria-pressed
               className="chip-select chip-select-active flex items-center gap-1.5"
             >
@@ -119,22 +149,113 @@ export function OnboardingForm() {
         <div className="mt-1 flex gap-2">
           <input
             type="text"
-            value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
-            onKeyDown={handleCustomKeyDown}
+            value={customInterestInput}
+            onChange={(e) => setCustomInterestInput(e.target.value)}
+            onKeyDown={(e) =>
+              handleChipKeyDown(e, () =>
+                addCustom(customInterestInput, interests, setInterests, () =>
+                  setCustomInterestInput(""),
+                ),
+              )
+            }
             placeholder="Add your own…"
             className="input-nook flex-1 text-sm"
           />
           <button
             type="button"
-            onClick={addCustomInterest}
-            disabled={!customInput.trim()}
+            onClick={() =>
+              addCustom(customInterestInput, interests, setInterests, () =>
+                setCustomInterestInput(""),
+              )
+            }
+            disabled={!customInterestInput.trim()}
             className="btn-secondary px-4 py-2 text-sm"
           >
             Add
           </button>
         </div>
       </div>
+
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-ink">Story genres you want</span>
+          <span className="text-xs text-ink-muted">
+            We&apos;ll lean on these when generating your plot bible.
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {GENRE_OPTIONS.map((genre) => {
+            const active = preferredGenres.includes(genre);
+            return (
+              <button
+                key={genre}
+                type="button"
+                onClick={() => toggleInList(genre, setPreferredGenres)}
+                aria-pressed={active}
+                className={`chip-select ${active ? "chip-select-active" : ""}`}
+              >
+                {genre}
+              </button>
+            );
+          })}
+          {customGenres.map((genre) => (
+            <button
+              key={genre}
+              type="button"
+              onClick={() => toggleInList(genre, setPreferredGenres)}
+              aria-pressed
+              className="chip-select chip-select-active flex items-center gap-1.5"
+            >
+              {genre}
+              <span aria-hidden>×</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-1 flex gap-2">
+          <input
+            type="text"
+            value={customGenreInput}
+            onChange={(e) => setCustomGenreInput(e.target.value)}
+            onKeyDown={(e) =>
+              handleChipKeyDown(e, () =>
+                addCustom(customGenreInput, preferredGenres, setPreferredGenres, () =>
+                  setCustomGenreInput(""),
+                ),
+              )
+            }
+            placeholder="Add a genre…"
+            className="input-nook flex-1 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() =>
+              addCustom(customGenreInput, preferredGenres, setPreferredGenres, () =>
+                setCustomGenreInput(""),
+              )
+            }
+            disabled={!customGenreInput.trim()}
+            className="btn-secondary px-4 py-2 text-sm"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
+        A fictional world you love{" "}
+        <span className="font-normal text-ink-muted">(optional)</span>
+        <input
+          type="text"
+          value={preferredWorld}
+          onChange={(e) => setPreferredWorld(e.target.value)}
+          placeholder='e.g. "Middle-earth", "Star Wars", "Studio Ghibli"'
+          className="input-nook"
+        />
+        <span className="text-xs font-normal text-ink-muted">
+          We&apos;ll borrow the vibe and setting — not retell the original plot.
+        </span>
+      </label>
 
       {error && <p className="text-sm text-burgundy">{error}</p>}
 

@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { findStoryById, getChapter, getUserLanguageById } from "@/lib/db";
+import { findStoryById, getChapter, getPlotBible, getUserLanguageById } from "@/lib/db";
 import { statusLabel } from "@/lib/library/spine-utils";
 import { StartStoryButton } from "./start-story-button";
+import { TurnPageButton } from "./turn-page-button";
 
-function readingPlaceholder(status: string, hasChapter: boolean): string {
-  if (hasChapter) return "";
+function readingPlaceholder(status: string): string {
   switch (status) {
     case "draft":
-      return "Open the book to begin — a hidden plot arc will guide every chapter.";
+      return "Open the book to begin — a hidden plot arc and Chapter 1 will be written for you.";
     case "generating_plot":
       return "Your plot is being woven. If this takes too long, refresh and try opening again.";
     case "active":
-      return "The story arc is ready. Chapter 1 will appear here in the next phase.";
+      return "Chapter 1 should appear after you open the book. Try opening again if it’s missing.";
     case "completed":
       return "You finished this book.";
     default:
@@ -35,14 +35,21 @@ export default async function StoryPage({
   if (!story || story.userId !== user.id) notFound();
 
   const language = await getUserLanguageById(user.id, story.languageId);
+  const bible = await getPlotBible(story.id);
+  const chapterNumber = story.currentChapter > 0 ? story.currentChapter : 0;
   const chapter =
-    story.currentChapter > 0
-      ? await getChapter(story.id, story.currentChapter)
-      : null;
+    chapterNumber > 0 ? await getChapter(story.id, chapterNumber) : null;
 
   const isDraft = story.status === "draft";
   const isGenerating = story.status === "generating_plot";
-  const plotReady = story.status === "active" || story.status === "completed";
+  const needsChapterOne =
+    (story.status === "active" || story.status === "completed") &&
+    !!bible &&
+    !chapter;
+  const canTurnPage =
+    (story.status === "active" || story.status === "completed") && !!chapter;
+  const isLastChapter =
+    !!bible && !!chapter && chapter.chapterNumber >= bible.chapterCount;
 
   return (
     <main className="nook-page">
@@ -62,6 +69,14 @@ export default async function StoryPage({
             <span>{story.scenario === "fantasy" ? "Fantasy" : "Real life"}</span>
             <span>·</span>
             <span className="text-gold">{statusLabel(story.status)}</span>
+            {bible && chapter && (
+              <>
+                <span>·</span>
+                <span>
+                  Chapter {chapter.chapterNumber} of {bible.chapterCount}
+                </span>
+              </>
+            )}
           </div>
         </header>
 
@@ -70,23 +85,18 @@ export default async function StoryPage({
           <p className="text-sm leading-relaxed text-ink-muted italic">{story.worldDescription}</p>
         </section>
 
-        {(isDraft || isGenerating) && (
+        {(isDraft || isGenerating || needsChapterOne) && (
           <section className="flex flex-col gap-3">
             <p className="text-sm text-ink-muted">
-              When you open this book, a hidden plot arc is written just for you — main story,
-              subplots, and twist points. You&apos;ll never see the blueprint, only the chapters
-              it shapes.
+              {needsChapterOne
+                ? "Your plot arc is ready. Begin Chapter 1 when you’re ready — later chapters wait until you turn the page."
+                : "When you open this book, a hidden plot arc is written, then Chapter 1 only. Later chapters appear when you turn the page — never ahead of time."}
             </p>
-            <StartStoryButton storyId={story.id} status={story.status} />
-          </section>
-        )}
-
-        {plotReady && !chapter && (
-          <section className="card-nook border-l-4 border-l-gold p-5">
-            <p className="text-sm text-ink-muted">
-              <span className="font-medium text-ink">Plot ready.</span> The story arc is in
-              place and your bookmark is set. Chapter 1 generation is next.
-            </p>
+            <StartStoryButton
+              storyId={story.id}
+              status={story.status}
+              needsChapterOne={needsChapterOne}
+            />
           </section>
         )}
 
@@ -97,19 +107,15 @@ export default async function StoryPage({
           {chapter ? (
             <p className="story-prose whitespace-pre-wrap">{chapter.text}</p>
           ) : (
-            <p className="text-sm text-ink-muted">
-              {readingPlaceholder(story.status, !!chapter)}
-            </p>
+            <p className="text-sm text-ink-muted">{readingPlaceholder(story.status)}</p>
           )}
 
-          <button
-            type="button"
-            disabled
-            className="btn-secondary w-fit opacity-50"
-            title="Available in Phase 4–5"
-          >
-            Turn the page →
-          </button>
+          {canTurnPage && (
+            <TurnPageButton
+              storyId={story.id}
+              isLastChapter={isLastChapter || story.status === "completed"}
+            />
+          )}
         </section>
       </div>
     </main>

@@ -23,7 +23,11 @@ export default async function NewStoryPage() {
           </p>
         </div>
 
-        <NewStoryForm languages={user.languages} />
+        <NewStoryForm
+          languages={user.languages}
+          preferredWorld={user.preferredWorld}
+          preferredGenres={user.preferredGenres}
+        />
       </div>
     </main>
   );

@@ -21,7 +21,14 @@ Include subplot1 beats woven through chapters 2–6 and optional subplot2 beats 
 Every beat needs a unique id (e.g. main-1, subplot1-3).
 Output valid JSON only.`,
     // TODO: revisit prompt
-    user: `Create a plot beat sheet for a ${input.scenario} story set in: ${input.worldDescription}.
+    user: `Create a plot beat sheet for a ${input.scenario} story.
+Story setting (from this book): ${input.worldDescription}.
+Preferred genres: ${input.preferredGenres.join(", ") || "general fiction"}.
+${
+  input.preferredWorld
+    ? `Preferred fictional world (lean into tone, tropes, and setting vibes of "${input.preferredWorld}" — invent ORIGINAL characters and plot; do not retell copyrighted stories): ${input.preferredWorld}.`
+    : "No preferred fictional world — invent an original setting from the description above."
+}
 Target language: ${input.languageName}. Learner level: ${input.level}.
 User interests: ${input.interests.join(", ") || "general fiction"}.
 

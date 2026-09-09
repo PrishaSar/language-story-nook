@@ -94,6 +94,26 @@ export default async function DashboardPage() {
             <p className="text-sm text-ink-muted">No interests selected.</p>
           )}
         </section>
+
+        <section className="card-nook flex flex-col gap-3 p-6">
+          <h2 className="font-serif text-lg font-semibold text-ink">Story tastes</h2>
+          {user.preferredGenres.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {user.preferredGenres.map((genre) => (
+                <span key={genre} className="interest-chip">
+                  {genre}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-muted">No genres selected yet.</p>
+          )}
+          {user.preferredWorld && (
+            <p className="text-sm text-ink-muted">
+              Favorite world: <span className="text-ink">{user.preferredWorld}</span>
+            </p>
+          )}
+        </section>
       </div>
     </main>
   );

@@ -91,6 +91,8 @@ export async function generateAndSavePlotBible(input: {
   story: Story;
   language: UserLanguage;
   interests: string[];
+  preferredGenres: string[];
+  preferredWorld: string | null;
 }): Promise<PlotBible> {
   // Only required when using the OpenAI block in src/lib/ai/provider.ts
   if (process.env.AI_PROVIDER === "openai" && !process.env.OPENAI_API_KEY) {
@@ -103,6 +105,8 @@ export async function generateAndSavePlotBible(input: {
     languageName: input.language.languageName,
     level: input.language.level,
     interests: input.interests,
+    preferredGenres: input.preferredGenres,
+    preferredWorld: input.preferredWorld,
     scenario: input.story.scenario === "fantasy" ? "fantasy" : "real life",
     worldDescription: input.story.worldDescription,
   });

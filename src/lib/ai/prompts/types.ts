@@ -32,6 +32,9 @@ export type PlotBiblePromptInput = {
   languageName: string;
   level: string;
   interests: string[];
+  preferredGenres: string[];
+  /** Existing fictional world the learner likes, if any. */
+  preferredWorld: string | null;
   scenario: string;
   worldDescription: string;
 };

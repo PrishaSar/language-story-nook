@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { startStoryAction } from "../actions";
+import { generateChapterOneAction, startStoryAction } from "../actions";
+
+type Phase = "idle" | "plot" | "chapter";
 
 export function StartStoryButton({
   storyId,
@@ -15,33 +17,66 @@ export function StartStoryButton({
   needsChapterOne?: boolean;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
 
   const canStart =
     status === "draft" || status === "generating_plot" || needsChapterOne;
   if (!canStart) return null;
 
+  const loading = phase !== "idle";
+
   async function handleStart() {
-    setLoading(true);
     setError(null);
-    const result = await startStoryAction(storyId);
-    if (result?.error) {
-      setError(result.error);
-      setLoading(false);
-      return;
+
+    try {
+      if (!needsChapterOne) {
+        setPhase("plot");
+        const plotResult = await startStoryAction(storyId);
+        if (plotResult?.error) {
+          setError(plotResult.error);
+          setPhase("idle");
+          return;
+        }
+        router.refresh();
+        if (plotResult.chapterReady) {
+          setPhase("idle");
+          return;
+        }
+      }
+
+      setPhase("chapter");
+      const chapterResult = await generateChapterOneAction(storyId);
+      if (chapterResult?.error) {
+        setError(chapterResult.error);
+        setPhase("idle");
+        router.refresh();
+        return;
+      }
+
+      router.refresh();
+      setPhase("idle");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong talking to the server.";
+      setError(
+        /fetch|network|Failed to fetch|timeout/i.test(message)
+          ? "The request timed out or dropped — usually Ollama taking too long. Keep Ollama open and try again (progress may already be saved)."
+          : message,
+      );
+      setPhase("idle");
+      router.refresh();
     }
-    router.refresh();
-    setLoading(false);
   }
 
-  const label = needsChapterOne
-    ? loading
-      ? "Writing Chapter 1…"
-      : "Begin Chapter 1"
-    : loading
-      ? "Opening your book…"
-      : "Open this book";
+  const label =
+    phase === "plot"
+      ? "Weaving your plot…"
+      : phase === "chapter"
+        ? "Writing Chapter 1…"
+        : needsChapterOne
+          ? "Begin Chapter 1"
+          : "Open this book";
 
   return (
     <div className="flex flex-col gap-2">
@@ -50,9 +85,9 @@ export function StartStoryButton({
       </button>
       {loading && (
         <p className="text-sm text-ink-muted">
-          {needsChapterOne
-            ? "Generating Chapter 1 only — later chapters wait until you turn the page."
-            : "Writing the hidden plot arc, then Chapter 1 — this may take a moment."}
+          {phase === "plot"
+            ? "Step 1/2: hidden plot arc. Local models can take a few minutes — don’t close this tab."
+            : "Step 2/2: Chapter 1 only. Later chapters wait until you turn the page."}
         </p>
       )}
       {error && <p className="text-sm text-burgundy">{error}</p>}

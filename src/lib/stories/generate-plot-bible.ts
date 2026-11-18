@@ -1,4 +1,5 @@
 import { generateFromPrompt, parseAIJson } from "@/lib/ai";
+import { assertAiConfigured } from "@/lib/ai/assert-configured";
 import { initLivingContext, savePlotBible, updateLivingContext } from "@/lib/db";
 import type { PlotBeat, PlotBible, Story, UserLanguage } from "@/lib/types";
 
@@ -92,20 +93,17 @@ export async function generateAndSavePlotBible(input: {
   language: UserLanguage;
   interests: string[];
   preferredGenres: string[];
+  preferredMedia: string[];
   preferredWorld: string | null;
 }): Promise<PlotBible> {
-  // Only required when using the OpenAI block in src/lib/ai/provider.ts
-  if (process.env.AI_PROVIDER === "openai" && !process.env.OPENAI_API_KEY) {
-    throw new Error(
-      "OpenAI API key is not configured. Add OPENAI_API_KEY to .env.local (see .env.example).",
-    );
-  }
+  assertAiConfigured();
 
   const result = await generateFromPrompt("plot-bible.generate", {
     languageName: input.language.languageName,
     level: input.language.level,
     interests: input.interests,
     preferredGenres: input.preferredGenres,
+    preferredMedia: input.preferredMedia,
     preferredWorld: input.preferredWorld,
     scenario: input.story.scenario === "fantasy" ? "fantasy" : "real life",
     worldDescription: input.story.worldDescription,

@@ -1,14 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 import { addLanguageAction } from "../actions";
-import { CEFR_LEVELS, LANGUAGE_OPTIONS } from "@/lib/constants/languages";
+import {
+  CEFR_LEVELS,
+  LANGUAGE_OPTIONS,
+  LEARNING_REASON_OPTIONS,
+} from "@/lib/constants/languages";
 import { DEFAULT_CEFR_LEVEL } from "@/lib/types";
 
 const initial = { error: null as string | null };
 
 export function AddLanguageForm({ hasLanguage }: { hasLanguage: boolean }) {
+  const [reasons, setReasons] = useState<string[]>([]);
+  const [customReasonInput, setCustomReasonInput] = useState("");
+
   const [state, formAction, pending] = useActionState(
     async (_prev: typeof initial, formData: FormData) => {
       const result = await addLanguageAction(formData);
@@ -16,6 +23,31 @@ export function AddLanguageForm({ hasLanguage }: { hasLanguage: boolean }) {
       return initial;
     },
     initial,
+  );
+
+  function toggleReason(reason: string) {
+    setReasons((prev) =>
+      prev.includes(reason) ? prev.filter((r) => r !== reason) : [...prev, reason],
+    );
+  }
+
+  function addCustomReason() {
+    const value = customReasonInput.trim();
+    if (!value) return;
+    const exists = reasons.some((r) => r.toLowerCase() === value.toLowerCase());
+    if (!exists) setReasons((prev) => [...prev, value]);
+    setCustomReasonInput("");
+  }
+
+  function handleCustomKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomReason();
+    }
+  }
+
+  const customReasons = reasons.filter(
+    (r) => !(LEARNING_REASON_OPTIONS as readonly string[]).includes(r),
   );
 
   if (hasLanguage) {
@@ -58,16 +90,67 @@ export function AddLanguageForm({ hasLanguage }: { hasLanguage: boolean }) {
         </span>
       </label>
 
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
-        Why are you learning this language?
-        <textarea
-          name="reasonForLearning"
-          required
-          rows={3}
-          placeholder="e.g. I'm traveling to Spain next year, or I want to read novels in French..."
-          className="input-nook"
-        />
-      </label>
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-ink">
+            Why are you learning this language?{" "}
+            <span className="font-normal text-ink-muted">(optional)</span>
+          </span>
+          <span className="text-xs text-ink-muted">
+            Leave blank and we&apos;ll default to &ldquo;For fun.&rdquo;
+          </span>
+        </div>
+
+        <input type="hidden" name="reasonForLearning" value={reasons.join(", ")} />
+
+        <div className="flex flex-wrap gap-2">
+          {LEARNING_REASON_OPTIONS.map((reason) => {
+            const active = reasons.includes(reason);
+            return (
+              <button
+                key={reason}
+                type="button"
+                onClick={() => toggleReason(reason)}
+                aria-pressed={active}
+                className={`chip-select ${active ? "chip-select-active" : ""}`}
+              >
+                {reason}
+              </button>
+            );
+          })}
+          {customReasons.map((reason) => (
+            <button
+              key={reason}
+              type="button"
+              onClick={() => toggleReason(reason)}
+              aria-pressed
+              className="chip-select chip-select-active flex items-center gap-1.5"
+            >
+              {reason}
+              <span aria-hidden>×</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-1 flex gap-2">
+          <input
+            type="text"
+            value={customReasonInput}
+            onChange={(e) => setCustomReasonInput(e.target.value)}
+            onKeyDown={handleCustomKeyDown}
+            placeholder="Add your own…"
+            className="input-nook flex-1 text-sm"
+          />
+          <button
+            type="button"
+            onClick={addCustomReason}
+            disabled={!customReasonInput.trim()}
+            className="btn-secondary px-4 py-2 text-sm"
+          >
+            Add
+          </button>
+        </div>
+      </div>
 
       {state.error && <p className="text-sm text-burgundy">{state.error}</p>}
 

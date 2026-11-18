@@ -33,6 +33,7 @@ export type PlotBiblePromptInput = {
   level: string;
   interests: string[];
   preferredGenres: string[];
+  preferredMedia: string[];
   /** Existing fictional world the learner likes, if any. */
   preferredWorld: string | null;
   scenario: string;
@@ -48,6 +49,18 @@ export type ChapterPromptInput = {
   completedBeatIds: string[];
   eventsSoFar: string[];
   knownWords: string[];
+  /** Pattern this chapter must focus on. */
+  grammarLabel: string;
+  grammarInstruction: string;
+  /** Patterns the reader already confirmed. Allowed, not the focus. */
+  knownGrammarLabels: string[];
+  /** How many new words this chapter may add. 0 keeps the list closed. */
+  newWordBudget: number;
+  /**
+   * When true (lower CEFR), model returns English visual stage-directions
+   * paired with target-language lines — not a full story translation.
+   */
+  includeVisualBeats: boolean;
 };
 
 export type VocabReviewPromptInput = {

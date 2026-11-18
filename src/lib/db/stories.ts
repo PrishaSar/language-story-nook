@@ -171,10 +171,19 @@ export async function getChapter(
   chapterNumber: number,
 ): Promise<Chapter | null> {
   const chapters = await readChapters();
-  return (
-    chapters.find((c) => c.storyId === storyId && c.chapterNumber === chapterNumber) ??
-    null
+  const chapter = chapters.find(
+    (c) => c.storyId === storyId && c.chapterNumber === chapterNumber,
   );
+  if (!chapter) return null;
+  return {
+    ...chapter,
+    sceneSet: chapter.sceneSet ?? null,
+    scenes: chapter.scenes ?? [],
+    vocabLayer: chapter.vocabLayer ?? [],
+    grammarId: chapter.grammarId ?? null,
+    whatHappened: chapter.whatHappened ?? null,
+    translationQuiz: chapter.translationQuiz ?? null,
+  };
 }
 
 export async function listChapters(storyId: string): Promise<Chapter[]> {

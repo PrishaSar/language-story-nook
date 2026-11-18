@@ -6,6 +6,8 @@ export {
   type GeneratePromptResult,
 } from "./generate";
 export { getLanguageModel, type AIProviderName } from "./provider";
+export { assertAiConfigured } from "./assert-configured";
+export { shouldIncludeVisualBeats, VISUAL_BEAT_LEVELS } from "./chapter-options";
 export {
   buildPrompt,
   getPromptMeta,

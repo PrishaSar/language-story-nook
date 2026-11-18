@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { updateUser } from "@/lib/db";
 
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    .map((item) => item.trim());
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
@@ -13,19 +20,16 @@ export async function POST(request: Request) {
         name?: unknown;
         interests?: unknown;
         preferredGenres?: unknown;
+        preferredMedia?: unknown;
         preferredWorld?: unknown;
       }
     | null;
 
   const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const interests = Array.isArray(body?.interests)
-    ? body.interests.filter((i): i is string => typeof i === "string" && i.trim().length > 0)
-    : [];
-  const preferredGenres = Array.isArray(body?.preferredGenres)
-    ? body.preferredGenres
-        .filter((g): g is string => typeof g === "string" && g.trim().length > 0)
-        .map((g) => g.trim())
-    : [];
+  // Optional tastes — empty arrays are fine; AI prompts fall back to defaults.
+  const interests = stringList(body?.interests);
+  const preferredGenres = stringList(body?.preferredGenres);
+  const preferredMedia = stringList(body?.preferredMedia);
   const preferredWorld =
     typeof body?.preferredWorld === "string" && body.preferredWorld.trim()
       ? body.preferredWorld.trim()
@@ -34,23 +38,12 @@ export async function POST(request: Request) {
   if (!name) {
     return NextResponse.json({ error: "Your name is required." }, { status: 400 });
   }
-  if (interests.length === 0) {
-    return NextResponse.json(
-      { error: "Pick at least one interest." },
-      { status: 400 },
-    );
-  }
-  if (preferredGenres.length === 0) {
-    return NextResponse.json(
-      { error: "Pick at least one story genre." },
-      { status: 400 },
-    );
-  }
 
   await updateUser(user.id, {
     name,
     interests,
     preferredGenres,
+    preferredMedia,
     preferredWorld,
     onboarded: true,
   });

@@ -10,6 +10,21 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  async function enterAsDeveloper() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/dev-login", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Developer entry is unavailable.");
+      router.replace(data.onboarded ? "/dashboard" : "/onboarding");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -61,6 +76,17 @@ export function LoginForm() {
       <button type="submit" disabled={loading} className="btn-primary mt-2">
         {loading ? "Opening…" : "Enter the nook"}
       </button>
+
+      {process.env.NODE_ENV === "development" && (
+        <button
+          type="button"
+          disabled={loading}
+          onClick={() => void enterAsDeveloper()}
+          className="btn-secondary text-sm"
+        >
+          Developer
+        </button>
+      )}
     </form>
   );
 }

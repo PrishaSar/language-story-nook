@@ -25,8 +25,8 @@ export async function generatePromptResponse(
 ): Promise<GeneratePromptResult> {
   const model = getLanguageModel();
   // Labels only — actual provider is chosen in provider.ts (comment swap).
-  const provider = process.env.AI_PROVIDER ?? "ollama";
-  const modelId = process.env.AI_MODEL ?? "llama3.2";
+  const provider = process.env.AI_PROVIDER ?? "gemini";
+  const modelId = process.env.AI_MODEL ?? "gemini-3.6-flash";
 
   const { text } = await generateText({
     model,
@@ -55,7 +55,20 @@ export async function generateFromPrompt<K extends PromptId>(
  */
 export function parseAIJson<T>(raw: string): T {
   const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const jsonStr = fenced ? fenced[1].trim() : trimmed;
-  return JSON.parse(jsonStr) as T;
+  const fenceStart = trimmed.indexOf("```");
+  let jsonStr = trimmed;
+  if (fenceStart >= 0) {
+    const afterTicks = trimmed.slice(fenceStart + 3);
+    const withoutLang = afterTicks.replace(/^json\s*/i, "");
+    const fenceEnd = withoutLang.indexOf("```");
+    jsonStr = (fenceEnd >= 0 ? withoutLang.slice(0, fenceEnd) : withoutLang).trim();
+  }
+  try {
+    return JSON.parse(jsonStr) as T;
+  } catch (err) {
+    const preview = jsonStr.slice(0, 180).replace(/\s+/g, " ");
+    throw new Error(
+      `Model returned invalid JSON${err instanceof Error ? ` (${err.message})` : ""}. Preview: ${preview}…`,
+    );
+  }
 }

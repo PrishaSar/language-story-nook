@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { readJsonFile, writeJsonFile } from "./file-store";
+import { STARTER_WORD_CAP, beginnerFrontier, firstGrammar } from "../grammar/ladder";
 import {
   DEFAULT_CEFR_LEVEL,
   type LanguageProgress,
@@ -14,6 +15,8 @@ export type User = {
   interests: string[];
   /** Story genres the learner wants (mystery, fantasy, etc.). */
   preferredGenres: string[];
+  /** Media the learner consumes most (news, webcomics, books, TV, …). */
+  preferredMedia: string[];
   /** Optional existing fictional world they love (e.g. "Middle-earth", "Star Wars"). */
   preferredWorld: string | null;
   languages: UserLanguage[];
@@ -27,12 +30,29 @@ function emptyProgress(): LanguageProgress {
   return { storiesCompleted: 0, chaptersRead: 0, wordsLearned: 0 };
 }
 
+function normalizeLanguage(raw: UserLanguage): UserLanguage {
+  const knownGrammarIds = raw.knownGrammarIds ?? [];
+  const stillAtTheStart =
+    knownGrammarIds.length === 0 &&
+    (!raw.currentGrammarId || raw.currentGrammarId === firstGrammar().id);
+  return {
+    ...raw,
+    currentGrammarId: stillAtTheStart ? beginnerFrontier().id : raw.currentGrammarId || firstGrammar().id,
+    knownGrammarIds,
+    lexicon: raw.lexicon ?? [],
+    wordCap: typeof raw.wordCap === "number" && raw.wordCap > 0 ? raw.wordCap : STARTER_WORD_CAP,
+    vocabConfirmedCount: raw.vocabConfirmedCount ?? 0,
+    lexiconGrammarId: raw.lexiconGrammarId ?? null,
+  };
+}
+
 function normalizeUser(raw: User): User {
   return {
     ...raw,
-    languages: raw.languages ?? [],
+    languages: (raw.languages ?? []).map(normalizeLanguage),
     interests: raw.interests ?? [],
     preferredGenres: raw.preferredGenres ?? [],
+    preferredMedia: raw.preferredMedia ?? [],
     preferredWorld: raw.preferredWorld ?? null,
   };
 }
@@ -66,6 +86,7 @@ export async function createUser(email: string, passwordHash: string): Promise<U
     name: null,
     interests: [],
     preferredGenres: [],
+    preferredMedia: [],
     preferredWorld: null,
     languages: [],
     onboarded: false,
@@ -84,6 +105,7 @@ export async function updateUser(
       | "name"
       | "interests"
       | "preferredGenres"
+      | "preferredMedia"
       | "preferredWorld"
       | "onboarded"
       | "languages"
@@ -120,6 +142,12 @@ export async function addUserLanguage(
     reasonForLearning: input.reasonForLearning.trim(),
     progress: emptyProgress(),
     isActive: !hasActive,
+    currentGrammarId: beginnerFrontier().id,
+    knownGrammarIds: [],
+    lexicon: [],
+    wordCap: STARTER_WORD_CAP,
+    vocabConfirmedCount: 0,
+    lexiconGrammarId: null,
     createdAt: new Date().toISOString(),
   };
 
@@ -162,6 +190,36 @@ export async function updateLanguageProgress(
 
   users[userIdx].languages[langIdx].progress = {
     ...users[userIdx].languages[langIdx].progress,
+    ...patch,
+  };
+  await writeUsers(users);
+  return users[userIdx].languages[langIdx];
+}
+
+export async function updateLanguageLearning(
+  userId: string,
+  languageId: string,
+  patch: Partial<
+    Pick<
+      UserLanguage,
+      | "currentGrammarId"
+      | "knownGrammarIds"
+      | "lexicon"
+      | "wordCap"
+      | "vocabConfirmedCount"
+      | "lexiconGrammarId"
+    >
+  >,
+): Promise<UserLanguage | null> {
+  const users = await readUsers();
+  const userIdx = users.findIndex((u) => u.id === userId);
+  if (userIdx === -1) return null;
+
+  const langIdx = users[userIdx].languages.findIndex((l) => l.id === languageId);
+  if (langIdx === -1) return null;
+
+  users[userIdx].languages[langIdx] = {
+    ...users[userIdx].languages[langIdx],
     ...patch,
   };
   await writeUsers(users);

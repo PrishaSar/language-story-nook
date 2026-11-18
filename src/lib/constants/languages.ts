@@ -24,3 +24,17 @@ export const CEFR_LABELS: Record<(typeof CEFR_LEVELS)[number], string> = {
   C1: "Advanced",
   C2: "Proficient",
 };
+
+/** Why the learner is studying — chips + optional custom. Blank → DEFAULT_LEARNING_REASON. */
+export const LEARNING_REASON_OPTIONS = [
+  "For fun",
+  "For work",
+  "Travel",
+  "School / studies",
+  "Family or friends",
+  "Moving abroad",
+  "Media (shows, books, games)",
+] as const;
+
+export const DEFAULT_LEARNING_REASON = "For fun";
+

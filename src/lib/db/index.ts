@@ -8,6 +8,7 @@ export {
   getUserLanguageById,
   listUserLanguages,
   updateLanguageProgress,
+  updateLanguageLearning,
   type User,
 } from "./users";
 

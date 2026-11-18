@@ -33,14 +33,18 @@ const GENRE_OPTIONS = [
   "Detective",
 ];
 
+const MEDIA_OPTIONS = ["News", "Webcomics", "Books", "TV shows"];
+
 export function OnboardingForm() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
   const [preferredGenres, setPreferredGenres] = useState<string[]>([]);
+  const [preferredMedia, setPreferredMedia] = useState<string[]>([]);
   const [preferredWorld, setPreferredWorld] = useState("");
   const [customInterestInput, setCustomInterestInput] = useState("");
   const [customGenreInput, setCustomGenreInput] = useState("");
+  const [customMediaInput, setCustomMediaInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -75,6 +79,7 @@ export function OnboardingForm() {
 
   const customInterests = interests.filter((i) => !INTEREST_OPTIONS.includes(i));
   const customGenres = preferredGenres.filter((g) => !GENRE_OPTIONS.includes(g));
+  const customMedia = preferredMedia.filter((m) => !MEDIA_OPTIONS.includes(m));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,6 +93,7 @@ export function OnboardingForm() {
           name,
           interests,
           preferredGenres,
+          preferredMedia,
           preferredWorld: preferredWorld.trim() || null,
         }),
       });
@@ -116,7 +122,15 @@ export function OnboardingForm() {
       </label>
 
       <div className="flex flex-col gap-2.5">
-        <span className="text-sm font-medium text-ink">Pick a few interests</span>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-ink">
+            Pick a few interests{" "}
+            <span className="font-normal text-ink-muted">(optional)</span>
+          </span>
+          <span className="text-xs text-ink-muted">
+            Skip if you like — stories will use a general default.
+          </span>
+        </div>
         <div className="flex flex-wrap gap-2">
           {INTEREST_OPTIONS.map((interest) => {
             const active = interests.includes(interest);
@@ -178,9 +192,12 @@ export function OnboardingForm() {
 
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium text-ink">Story genres you want</span>
+          <span className="text-sm font-medium text-ink">
+            Story genres you want{" "}
+            <span className="font-normal text-ink-muted">(optional)</span>
+          </span>
           <span className="text-xs text-ink-muted">
-            We&apos;ll lean on these when generating your plot bible.
+            We&apos;ll lean on these for your plot bible, or use general fiction if blank.
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -235,6 +252,75 @@ export function OnboardingForm() {
               )
             }
             disabled={!customGenreInput.trim()}
+            className="btn-secondary px-4 py-2 text-sm"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-ink">
+            What type of media do you consume most?{" "}
+            <span className="font-normal text-ink-muted">(optional)</span>
+          </span>
+          <span className="text-xs text-ink-muted">
+            We&apos;ll shape chapter pacing and tone to feel closer to what you already enjoy.
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {MEDIA_OPTIONS.map((media) => {
+            const active = preferredMedia.includes(media);
+            return (
+              <button
+                key={media}
+                type="button"
+                onClick={() => toggleInList(media, setPreferredMedia)}
+                aria-pressed={active}
+                className={`chip-select ${active ? "chip-select-active" : ""}`}
+              >
+                {media}
+              </button>
+            );
+          })}
+          {customMedia.map((media) => (
+            <button
+              key={media}
+              type="button"
+              onClick={() => toggleInList(media, setPreferredMedia)}
+              aria-pressed
+              className="chip-select chip-select-active flex items-center gap-1.5"
+            >
+              {media}
+              <span aria-hidden>×</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-1 flex gap-2">
+          <input
+            type="text"
+            value={customMediaInput}
+            onChange={(e) => setCustomMediaInput(e.target.value)}
+            onKeyDown={(e) =>
+              handleChipKeyDown(e, () =>
+                addCustom(customMediaInput, preferredMedia, setPreferredMedia, () =>
+                  setCustomMediaInput(""),
+                ),
+              )
+            }
+            placeholder="Add your own…"
+            className="input-nook flex-1 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() =>
+              addCustom(customMediaInput, preferredMedia, setPreferredMedia, () =>
+                setCustomMediaInput(""),
+              )
+            }
+            disabled={!customMediaInput.trim()}
             className="btn-secondary px-4 py-2 text-sm"
           >
             Add

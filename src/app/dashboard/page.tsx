@@ -108,6 +108,12 @@ export default async function DashboardPage() {
           ) : (
             <p className="text-sm text-ink-muted">No genres selected yet.</p>
           )}
+          {user.preferredMedia.length > 0 && (
+            <p className="text-sm text-ink-muted">
+              Media:{" "}
+              <span className="text-ink">{user.preferredMedia.join(", ")}</span>
+            </p>
+          )}
           {user.preferredWorld && (
             <p className="text-sm text-ink-muted">
               Favorite world: <span className="text-ink">{user.preferredWorld}</span>

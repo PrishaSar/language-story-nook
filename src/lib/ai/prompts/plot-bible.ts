@@ -24,6 +24,7 @@ Output valid JSON only.`,
     user: `Create a plot beat sheet for a ${input.scenario} story.
 Story setting (from this book): ${input.worldDescription}.
 Preferred genres: ${input.preferredGenres.join(", ") || "general fiction"}.
+Media they consume most (mirror pacing/tone when useful — e.g. webcomic = short punchy beats, news = clear factual-feeling scenes, TV = episodic hooks): ${input.preferredMedia.join(", ") || "general entertainment"}.
 ${
   input.preferredWorld
     ? `Preferred fictional world (lean into tone, tropes, and setting vibes of "${input.preferredWorld}" — invent ORIGINAL characters and plot; do not retell copyrighted stories): ${input.preferredWorld}.`

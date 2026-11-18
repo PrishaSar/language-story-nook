@@ -8,9 +8,11 @@ import {
   getChapter,
   getPlotBible,
   getUserLanguageById,
+  updateLanguageLearning,
   updateStoryChapter,
   updateStoryStatus,
 } from "@/lib/db";
+import { WORD_CAP_STEP, focusPatterns, nextGrammar } from "@/lib/grammar/ladder";
 import { requireLanguageProfile } from "@/lib/guards/language";
 import { generateAndSaveChapter } from "@/lib/stories/generate-chapter";
 import { generateAndSavePlotBible } from "@/lib/stories/generate-plot-bible";
@@ -57,8 +59,8 @@ export async function createStoryAction(formData: FormData) {
 }
 
 /**
- * Open the book: generate Plot Bible (if needed), then Chapter 1 only.
- * Later chapters wait for "Turn the page".
+ * Open the book: generate Plot Bible only (Chapter 1 is a separate step).
+ * Keeping these apart avoids one huge Ollama call that can look like a browser crash.
  */
 export async function startStoryAction(storyId: string) {
   const user = await getCurrentUser();
@@ -90,12 +92,12 @@ export async function startStoryAction(storyId: string) {
         language,
         interests: user.interests,
         preferredGenres: user.preferredGenres,
+        preferredMedia: user.preferredMedia,
         preferredWorld: user.preferredWorld,
       });
     } catch (err) {
       await updateStoryStatus(storyId, "draft");
-      const message =
-        err instanceof Error ? err.message : "Could not generate the plot. Please try again.";
+      const message = formatAiError(err, "Could not generate the plot. Please try again.");
       return { error: message };
     }
 
@@ -105,19 +107,63 @@ export async function startStoryAction(storyId: string) {
 
   await updateStoryStatus(storyId, "active");
 
+  const chapterOne = await getChapter(storyId, 1);
+  if (chapterOne) {
+    if (working.currentChapter < 1) {
+      await updateStoryChapter(storyId, 1);
+    }
+    return { ok: true, chapterReady: true };
+  }
+
+  return { ok: true, chapterReady: false };
+}
+
+/** Generate Chapter 1 only — call after the plot bible exists. */
+export async function generateChapterOneAction(storyId: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const story = await findStoryById(storyId);
+  if (!story || story.userId !== user.id) {
+    return { error: "Story not found." };
+  }
+
+  if (story.status !== "active" && story.status !== "completed") {
+    return { error: "Open the book (generate the plot) before writing Chapter 1." };
+  }
+
+  const language = await getUserLanguageById(user.id, story.languageId);
+  if (!language) {
+    return { error: "Language not found for this story." };
+  }
+
+  const bible = await getPlotBible(storyId);
+  if (!bible) {
+    return { error: "Plot Bible not found. Open the book first." };
+  }
+
   try {
-    // Chapter 1 only — never pre-generate chapter 2+.
     await generateAndSaveChapter({
-      story: { ...working, status: "active" },
+      story,
       language,
       chapterNumber: 1,
     });
     return { ok: true };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not write Chapter 1. Please try again.";
+    const message = formatAiError(err, "Could not write Chapter 1. Please try again.");
     return { error: message };
   }
+}
+
+function formatAiError(err: unknown, fallback: string): string {
+  const raw = err instanceof Error ? err.message : String(err ?? "");
+  if (/JSON|Unexpected token|parse/i.test(raw)) {
+    return `${fallback} The local model returned invalid JSON — try again, or use a stronger model.`;
+  }
+  if (/fetch failed|ECONNREFUSED|timeout|Timed out|AbortError/i.test(raw)) {
+    return `${fallback} Ollama looks unreachable or overloaded — confirm \`ollama serve\` is running and try again.`;
+  }
+  return raw || fallback;
 }
 
 /**
@@ -174,8 +220,106 @@ export async function turnPageAction(storyId: string) {
 
     return { ok: true, chapterNumber: chapter.chapterNumber, reused: false };
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not write the next chapter. Please try again.";
+    const message = formatAiError(
+      err,
+      "Could not write the next chapter. Please try again.",
+    );
     return { error: message };
   }
+}
+
+/**
+ * Go to the previous chapter. Only uses already-saved chapters — never regenerates.
+ */
+export async function turnBackPageAction(storyId: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const story = await findStoryById(storyId);
+  if (!story || story.userId !== user.id) {
+    return { error: "Story not found." };
+  }
+
+  if (story.status !== "active" && story.status !== "completed") {
+    return { error: "Open the book before turning pages." };
+  }
+
+  const current = story.currentChapter > 0 ? story.currentChapter : 1;
+  if (current <= 1) {
+    return { error: "You're already on the first chapter." };
+  }
+
+  const prevNumber = current - 1;
+  const existing = await getChapter(storyId, prevNumber);
+  if (!existing) {
+    return { error: `Chapter ${prevNumber} hasn't been written yet.` };
+  }
+
+  await updateStoryChapter(storyId, prevNumber);
+  return { ok: true, chapterNumber: prevNumber };
+}
+
+/**
+ * Mark the chapter's grammar pattern as known and point the language at the next one.
+ * Turning the page does not do this.
+ */
+export async function confirmGrammarAction(storyId: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const story = await findStoryById(storyId);
+  if (!story || story.userId !== user.id) {
+    return { error: "Story not found." };
+  }
+
+  const language = await getUserLanguageById(user.id, story.languageId);
+  if (!language) {
+    return { error: "Language not found for this story." };
+  }
+
+  const focus = focusPatterns(language.currentGrammarId, language.knownGrammarIds);
+  const frontier = focus[focus.length - 1]!;
+  if (language.knownGrammarIds.includes(frontier.id)) {
+    return { ok: true, alreadyKnown: true };
+  }
+
+  const knownGrammarIds = [...new Set([...language.knownGrammarIds, ...focus.map((pattern) => pattern.id)])];
+  const upcoming = nextGrammar(frontier.id);
+
+  await updateLanguageLearning(user.id, language.id, {
+    knownGrammarIds,
+    currentGrammarId: upcoming?.id ?? frontier.id,
+  });
+
+  return { ok: true, nextLabel: upcoming?.learnerLabel ?? null };
+}
+
+/**
+ * Raise the word cap. Grammar stays where it is.
+ * Turning the page does not do this.
+ */
+export async function confirmVocabAction(storyId: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const story = await findStoryById(storyId);
+  if (!story || story.userId !== user.id) {
+    return { error: "Story not found." };
+  }
+
+  const language = await getUserLanguageById(user.id, story.languageId);
+  if (!language) {
+    return { error: "Language not found for this story." };
+  }
+
+  if (language.lexicon.length === 0 || language.lexicon.length <= language.vocabConfirmedCount) {
+    return { ok: true, alreadyKnown: true };
+  }
+
+  await updateLanguageLearning(user.id, language.id, {
+    vocabConfirmedCount: language.lexicon.length,
+    wordCap: language.lexicon.length + WORD_CAP_STEP,
+  });
+
+  return { ok: true, wordCap: language.lexicon.length + WORD_CAP_STEP };
 }
